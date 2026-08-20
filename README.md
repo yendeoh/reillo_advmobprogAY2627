@@ -4,12 +4,5 @@ INF231
 
 ## Getting Started
 
-The model stores cart data, the service gets data from the API, and the screen displays it. Cart products use their product ID to open DetailScreen.
-
-/carts/user/1 gets a user’s cart.
-/carts/1 gets a specific cart.
-/products/1 gets a product’s details.
-
-
-model stores cart data, the service retrieves it from the API, and the screen displays it. Cart items use their product IDs to open the existing DetailScreen
-# lab act 3
+The app uses UserService to authenticate and save the user data, the User model to organize it, ProfileScreen to display it, and the saved user ID to load the correct cart in CartScreen.
+# lab act 4
