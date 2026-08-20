@@ -46,7 +46,7 @@ class DetailScreen extends StatelessWidget {
                 height: 220.h,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   height: 220.h,
                   color: Colors.grey.shade200,
                   child: const Center(child: Icon(Icons.image_not_supported)),

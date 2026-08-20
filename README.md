@@ -4,9 +4,12 @@ INF231
 
 ## Getting Started
 
-The model defines the structure of the data, the service retrieves the data from the API 
-endpoint, and the screen uses that data to display the information on the user interface. 
-This new design pattern is called the Model–Service–Screen pattern, which makes the app 
-easier to organize, maintain, and update because each part has a clear responsibility.
+The model stores cart data, the service gets data from the API, and the screen displays it. Cart products use their product ID to open DetailScreen.
 
-# lab act 2 test
+/carts/user/1 gets a user’s cart.
+/carts/1 gets a specific cart.
+/products/1 gets a product’s details.
+
+
+model stores cart data, the service retrieves it from the API, and the screen displays it. Cart items use their product IDs to open the existing DetailScreen
+# lab act 3

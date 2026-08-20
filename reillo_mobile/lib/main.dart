@@ -6,8 +6,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
 // screens
+import 'screens/splash_screen.dart';
+import 'screens/signin_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/cart_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 
 // providers
@@ -43,9 +46,13 @@ class ReilloAdvMobProg extends StatelessWidget {
             darkTheme: themeModel.darkTheme,
             themeMode: themeModel.isDark ? ThemeMode.dark : ThemeMode.light,
             title: 'E-Commerce App',
-            home: const MainShell(),
+            // ENHANCEMENT 1: app now boots into splash_screen first, which
+            // silently checks persistent auth and routes to /signin or /home.
+            initialRoute: '/',
             routes: {
-              '/home': (context) => const HomeScreen(),
+              '/': (context) => const SplashScreen(),
+              '/signin': (context) => const SigninScreen(),
+              '/home': (context) => const MainShell(),
               '/settings': (context) => const SettingsScreen(),
             },
           );
@@ -65,13 +72,14 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
+  // ENHANCEMENT 3: CartScreen no longer takes a hard-coded userId — it
+  // reads the saved user via UserService internally. Person tab now opens
+  // ProfileScreen (renders saved user data + logout) instead of Settings.
   final List<Widget> _screens = const [
     HomeScreen(),
-    CartScreen(userId: 1),
-    SettingsScreen(),
+    CartScreen(),
+    ProfileScreen(),
   ];
-
-  static const int _cartIndex = 1;
 
   void _onNavTap(int index) {
     setState(() => _currentIndex = index);
@@ -79,49 +87,28 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final bool onCartScreen = _currentIndex == _cartIndex;
-
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
-      floatingActionButton: onCartScreen
-          ? null
-          : FloatingActionButton(
-              onPressed: () {
-                final next = (_currentIndex + 1) % _screens.length;
-                _onNavTap(next);
-              },
-              child: const Icon(Icons.chat),
-            ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.storefront,
-                color: _currentIndex == 0 ? Colors.indigo : Colors.grey,
-              ),
-              onPressed: () => _onNavTap(0),
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.shopping_cart,
-                color: onCartScreen ? Colors.indigo : Colors.grey,
-              ),
-              onPressed: () => _onNavTap(_cartIndex),
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.person,
-                color: _currentIndex == 2 ? Colors.indigo : Colors.grey,
-              ),
-              onPressed: () => _onNavTap(2),
-            ),
-          ],
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: _onNavTap,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart_outlined),
+            activeIcon: Icon(Icons.shopping_cart),
+            label: 'Cart',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }

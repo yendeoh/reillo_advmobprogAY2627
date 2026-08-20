@@ -141,7 +141,7 @@ class _ProductScreenState extends State<ProductScreen> {
                                   product.thumbnail,
                                   fit: BoxFit.cover,
                                   width: double.infinity,
-                                  errorBuilder: (_, __, ___) =>
+                                  errorBuilder: (_, _, _) =>
                                       const Icon(Icons.image),
                                 ),
                               ),
