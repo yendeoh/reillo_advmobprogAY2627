@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'chat_screen.dart';
 import 'product_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -32,6 +33,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         body: const ProductScreen(),
+        // LAB ACT 6: the chat FloatingActionButton opens the Chat List UI.
+        floatingActionButton: FloatingActionButton(
+          tooltip: 'Messages',
+          backgroundColor: const Color(0xFF202B62),
+          foregroundColor: Colors.white,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ChatScreen()),
+          ),
+          child: const Icon(Icons.chat_bubble_outline),
+        ),
       ),
     );
   }

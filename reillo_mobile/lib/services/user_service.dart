@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 // Prefixed because firebase_auth also exports a class named User.
@@ -13,8 +14,7 @@ ValueNotifier<UserService> userService = ValueNotifier(UserService());
 class UserService {
   Map<String, dynamic> data = {};
 
-  // Keys that belong to the signed-in session. Logout removes only these so
-  // the locally saved Firebase sign-up profiles survive a logout.
+  // Keys that belong to the signed-in session; logout removes only these.
   static const _sessionKeys = [
     'id',
     'uid',
@@ -262,12 +262,18 @@ class UserService {
     await currentUser!.updatePassword(newPassword);
   }
 
-  // LAB ACT 5: Firebase helpers built on the functions above. Firebase Auth
-  // only stores email, password and display name, so the extra sign-up fields
-  // (name, age, contact number) are kept on the device, keyed by the uid.
+  // LAB ACT 5: Firebase helpers built on the functions above.
+  // LAB ACT 6: Firebase Auth only stores email, password and display name,
+  // so each account also gets a Firestore document at Users/{uid} holding the
+  // sign-up profile. The chat list reads this collection to show every
+  // registered user.
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-  /// Create a Firebase account, set its display name to the username, keep
-  /// the extra profile fields, and start the session.
+  DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
+      firestore.collection('Users').doc(uid);
+
+  /// Create a Firebase account, set its display name to the username, save
+  /// the profile to Firestore, and start the session.
   Future<app.User> firebaseSignUp({
     required String email,
     required String password,
@@ -280,16 +286,16 @@ class UserService {
     final credential = await createAccount(email: email, password: password);
     await updateUsername(username: username);
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _profileKey(credential.user!.uid),
-      jsonEncode({
-        'firstName': firstName,
-        'lastName': lastName,
-        'age': age,
-        'phone': phone,
-      }),
-    );
+    await _userDoc(credential.user!.uid).set({
+      'uid': credential.user!.uid,
+      'email': email,
+      'username': username,
+      'firstName': firstName,
+      'lastName': lastName,
+      'age': age,
+      'phone': phone,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
 
     return _saveFirebaseSession(credential.user!);
   }
@@ -308,18 +314,26 @@ class UserService {
     // reload() so a display name set during sign up is visible immediately.
     await firebaseUser.reload();
     final user = currentUser ?? firebaseUser;
-    final prefs = await SharedPreferences.getInstance();
-    final extras = prefs.getString(_profileKey(user.uid));
-    final profile = extras == null
-        ? <String, dynamic>{}
-        : jsonDecode(extras) as Map<String, dynamic>;
+
+    // Accounts made before Lab 6 have no Users document yet; merge creates
+    // one with what Auth knows, so they still show up in the chat list.
+    final doc = _userDoc(user.uid);
+    await doc.set({
+      'uid': user.uid,
+      'email': user.email ?? '',
+      if ((user.displayName ?? '').isNotEmpty) 'username': user.displayName,
+    }, SetOptions(merge: true));
+    final profile = (await doc.get()).data() ?? {};
 
     // The SDK refreshes the ID token on its own; this just caches the latest.
     final idToken = await user.getIdToken() ?? '';
     final sessionData = {
-      ...profile,
+      'firstName': profile['firstName'] ?? '',
+      'lastName': profile['lastName'] ?? '',
+      'age': profile['age'] ?? 0,
+      'phone': profile['phone'] ?? '',
       'uid': user.uid,
-      'username': user.displayName ?? '',
+      'username': user.displayName ?? profile['username'] ?? '',
       'email': user.email ?? '',
       'image': user.photoURL ?? '',
       'accessToken': idToken,
@@ -334,6 +348,7 @@ class UserService {
   Future<void> changeUsername(app.User user, String username) async {
     if (user.loginType == app.LoginType.firebase) {
       await updateUsername(username: username);
+      await _userDoc(user.uid).update({'username': username});
     } else {
       await updateDummyJsonUser(user.id, {'username': username});
     }
@@ -362,16 +377,18 @@ class UserService {
   /// Delete the account on whichever backend owns the session, then clear it.
   Future<void> removeAccount(app.User user, {required String password}) async {
     if (user.loginType == app.LoginType.firebase) {
+      // Check the password before touching data, then remove the Users
+      // document while still signed in (the rules need an authenticated user).
+      await currentUser!.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: user.email, password: password),
+      );
+      await _userDoc(user.uid).delete();
       await deleteAccount(email: user.email, password: password);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_profileKey(user.uid));
       await logout();
     } else {
       await deleteDummyJsonUser(user.id);
     }
   }
-
-  String _profileKey(String uid) => 'firebase_profile_$uid';
 
   /// Readable messages for the Firebase Auth error codes users actually hit.
   static String errorMessage(Object error) {
@@ -398,6 +415,14 @@ class UserService {
         case 'operation-not-allowed':
           return 'Email/password sign-in is not enabled in Firebase.';
       }
+      return error.message ?? error.code;
+    }
+    // Firestore errors (FirebaseAuthException is handled above).
+    if (error is FirebaseException) {
+      if (error.code == 'permission-denied') {
+        return 'Firestore rules blocked this request.';
+      }
+      if (error.code == 'unavailable') return 'No internet connection.';
       return error.message ?? error.code;
     }
     return error.toString().replaceFirst('Exception: ', '');
