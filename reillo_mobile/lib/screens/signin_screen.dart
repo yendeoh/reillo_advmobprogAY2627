@@ -1,10 +1,15 @@
 // lib/screens/signin_screen.dart
 import 'package:flutter/material.dart';
+import '../models/user.dart';
 import '../services/user_service.dart';
+import '../utils/validators.dart';
+import '../widgets/login_type_toggle.dart';
 
 // ENHANCEMENT 2: This custom sign-in UI validates credentials, calls
 // UserService.loginUser, persists the response, and opens the authenticated
 // home shell only after the request succeeds.
+// LAB ACT 5: The toggle picks the backend — DummyJSON signs in with a
+// username, Firebase Auth with an email address.
 class SigninScreen extends StatefulWidget {
   const SigninScreen({super.key});
 
@@ -19,8 +24,11 @@ class _SigninScreenState extends State<SigninScreen> {
   final _passwordController = TextEditingController();
   final UserService _userService = UserService();
 
+  LoginType _loginType = LoginType.firebase;
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  bool get _isFirebase => _loginType == LoginType.firebase;
 
   @override
   void dispose() {
@@ -36,13 +44,20 @@ class _SigninScreenState extends State<SigninScreen> {
 
     if (_formKey.currentState!.validate()) {
       try {
-        final response = await _userService.loginUser(
-          _usernameController.text,
-          _passwordController.text,
-        );
-
-        // Save user data to SharedPreferences
-        await _userService.saveUserData(response);
+        // Both paths save the session to SharedPreferences inside UserService.
+        final Map<String, dynamic> response;
+        if (_isFirebase) {
+          final user = await _userService.firebaseSignIn(
+            email: _usernameController.text.trim(),
+            password: _passwordController.text,
+          );
+          response = user.toJson();
+        } else {
+          response = await _userService.loginUser(
+            _usernameController.text.trim(),
+            _passwordController.text,
+          );
+        }
 
         if (!mounted) return;
         setState(() {
@@ -56,7 +71,9 @@ class _SigninScreenState extends State<SigninScreen> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${e.toString()}')),
+          SnackBar(
+            content: Text('Login failed: ${UserService.errorMessage(e)}'),
+          ),
         );
       }
     } else {
@@ -104,7 +121,12 @@ class _SigninScreenState extends State<SigninScreen> {
                   'Sign in to continue shopping with NUBD Exchange.',
                   style: TextStyle(color: Colors.black54, fontSize: 15),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
+                LoginTypeToggle(
+                  value: _loginType,
+                  onChanged: (type) => setState(() => _loginType = type),
+                ),
+                const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -123,14 +145,23 @@ class _SigninScreenState extends State<SigninScreen> {
                     children: [
                       TextFormField(
                         controller: _usernameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Username',
-                          hintText: 'Enter your DummyJSON username',
-                          prefixIcon: Icon(Icons.person_outline),
+                        keyboardType: _isFirebase
+                            ? TextInputType.emailAddress
+                            : TextInputType.text,
+                        decoration: InputDecoration(
+                          labelText: _isFirebase ? 'Email address' : 'Username',
+                          hintText: _isFirebase
+                              ? 'Enter your email address'
+                              : 'Enter your DummyJSON username',
+                          prefixIcon: Icon(
+                            _isFirebase
+                                ? Icons.email_outlined
+                                : Icons.person_outline,
+                          ),
                         ),
-                        validator: (value) => (value == null || value.isEmpty)
-                            ? 'Username is required'
-                            : null,
+                        validator: (value) => _isFirebase
+                            ? Validators.email(value)
+                            : Validators.required(value, 'Username'),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -138,7 +169,7 @@ class _SigninScreenState extends State<SigninScreen> {
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          hintText: 'Enter your DummyJSON password',
+                          hintText: 'Enter your password',
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             tooltip: 'Show password',
@@ -190,6 +221,19 @@ class _SigninScreenState extends State<SigninScreen> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Don't have an account?"),
+                    TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () => Navigator.pushNamed(context, '/signup'),
+                      child: const Text('Sign up'),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "352976635277",
+    "project_id": "advmobprogay2627-fe4df",
+    "storage_bucket": "advmobprogay2627-fe4df.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:352976635277:android:3169eb326f394e6632e9c4",
+        "android_client_info": {
+          "package_name": "com.example.reillo_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHygRNMMX2rwMNO43FeW_obMRX7RV3z0w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
